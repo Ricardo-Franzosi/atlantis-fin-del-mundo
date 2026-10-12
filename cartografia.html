@@ -88,7 +88,9 @@
     const formatDate = value => new Intl.DateTimeFormat('es-AR', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(value));
     const draw = key => {
       Object.values(layers).forEach(layer => map.removeLayer(layer));
-      const segmentKeys = key === 'full' ? ['outbound', 'antarcticaRoute', 'returnRoute'] : [key];
+      let segmentKeys = key === 'full' ? ['outbound', 'antarcticaRoute', 'returnRoute'] : [key];
+      segmentKeys = segmentKeys.filter(segmentKey => Array.isArray(data.points[segmentKey]) && data.points[segmentKey].length);
+      if (!segmentKeys.length && Array.isArray(data.points.full)) segmentKeys = ['full'];
       const group = L.featureGroup();
       segmentKeys.forEach(segmentKey => {
         const coords = data.points[segmentKey].map(p => [p.lat, p.lon]);
@@ -101,7 +103,7 @@
       if (key === 'full') map.fitBounds(layers[key].getBounds(), { padding: [24, 24] });
       else map.fitBounds(layers[key].getBounds(), { padding: [38, 38], maxZoom: 7 });
     };
-    fetch('./atlantis-track-selective.json').then(response => { if (!response.ok) throw new Error('No se pudo cargar el track'); return response.json(); }).then(json => {
+    fetch('./atlantis-track-selective.json?v=3').then(response => { if (!response.ok) throw new Error('No se pudo cargar el track'); return response.json(); }).then(json => {
       data = json;
       const bounds = L.latLngBounds();
       json.markers.forEach(marker => {
