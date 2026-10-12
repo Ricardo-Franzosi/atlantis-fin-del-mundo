@@ -22,7 +22,7 @@
     .leaflet-container img,.leaflet-tile{max-width:none!important}
     .map-caption{display:grid;grid-template-columns:1.2fr .8fr;gap:1.25rem;padding:1rem .35rem .15rem;color:var(--ink-soft);font-size:.9rem}
     .map-caption p{margin:0}.map-caption strong{color:var(--navy)}
-    .route-key{display:flex;flex-wrap:wrap;gap:.8rem 1rem;align-items:center}.key-item{display:inline-flex;align-items:center;gap:.4rem}.key-line{display:inline-block;width:24px;height:4px;border-radius:99px;background:#237887}.key-line.austral{background:#c47743}.key-line.antarctica{background:#7256a5}
+    .route-key{display:flex;flex-wrap:wrap;gap:.8rem 1rem;align-items:center}.key-item{display:inline-flex;align-items:center;gap:.4rem}.key-line{display:inline-block;width:24px;height:4px;border-radius:99px;background:#237887}.key-line.austral{background:#c47743}.key-line.antarctica{background:#7256a5}.key-line.return{background:#c47743}
     .stop-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.75rem;margin-bottom:5rem}.stop-card{padding:1rem 1.1rem;border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--paper-2)}.stop-card strong{display:block;color:var(--navy);font-family:Georgia,"Times New Roman",serif;font-size:1.05rem}.stop-card span{color:var(--ink-soft);font-size:.78rem}
     @media(max-width:720px){.map-status{width:100%;margin-left:0}.map-caption{grid-template-columns:1fr}.stop-list{grid-template-columns:1fr 1fr}}
     @media(max-width:480px){#map{min-height:360px}.stop-list{grid-template-columns:1fr}}
@@ -62,7 +62,7 @@
       <div id="map" role="region" aria-labelledby="mapa-titulo"></div>
       <div class="map-caption">
         <p id="mapa-titulo"><strong>Track seleccionado del GPX:</strong> se muestran puntos representativos para mantener una navegación fluida en celulares y computadoras. La línea completa conserva el recorrido general; las capas austral y antártica ayudan a concentrar la mirada.</p>
-        <div class="route-key" aria-label="Referencias de colores"><span class="key-item"><i class="key-line"></i> ruta completa</span><span class="key-item"><i class="key-line austral"></i> aguas australes</span><span class="key-item"><i class="key-line antarctica"></i> Antártida</span></div>
+        <div class="route-key" aria-label="Referencias de colores"><span class="key-item"><i class="key-line"></i> rumbo al sur</span><span class="key-item"><i class="key-line antarctica"></i> tramo antártico</span><span class="key-item"><i class="key-line return"></i> regreso</span></div>
       </div>
     </section>
 
@@ -81,17 +81,23 @@
   <script>
     const map = L.map('map', { scrollWheelZoom: false });
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 12, attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
-    const palette = { full: '#237887', austral: '#c47743', antarctica: '#7256a5' };
+    const palette = { outbound: '#237887', antarcticaRoute: '#7256a5', returnRoute: '#c47743', austral: '#c47743', antarctica: '#7256a5' };
     const layers = {};
     let data;
     const status = document.getElementById('map-status');
     const formatDate = value => new Intl.DateTimeFormat('es-AR', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(value));
     const draw = key => {
       Object.values(layers).forEach(layer => map.removeLayer(layer));
-      const coords = data.points[key].map(p => [p.lat, p.lon]);
-      layers[key] = L.polyline(coords, { color: palette[key], weight: key === 'full' ? 3 : 4, opacity: key === 'full' ? .72 : .9, lineJoin: 'round' }).addTo(map);
+      const segmentKeys = key === 'full' ? ['outbound', 'antarcticaRoute', 'returnRoute'] : [key];
+      const group = L.featureGroup();
+      segmentKeys.forEach(segmentKey => {
+        const coords = data.points[segmentKey].map(p => [p.lat, p.lon]);
+        L.polyline(coords, { color: palette[segmentKey], weight: key === 'full' ? 4 : 4.5, opacity: .9, lineJoin: 'round' }).addTo(group);
+      });
+      layers[key] = group.addTo(map);
       document.querySelectorAll('[data-layer]').forEach(button => button.setAttribute('aria-pressed', button.dataset.layer === key ? 'true' : 'false'));
-      status.textContent = `${data.points[key].length.toLocaleString('es-AR')} puntos representativos · ${key === 'full' ? 'travesía completa' : key === 'austral' ? 'aguas australes' : 'Antártida'}`;
+      const pointCount = segmentKeys.reduce((sum, segmentKey) => sum + data.points[segmentKey].length, 0);
+      status.textContent = `${pointCount.toLocaleString('es-AR')} puntos representativos · ${key === 'full' ? 'ida, Antártida y regreso' : key === 'austral' ? 'aguas australes' : 'Antártida'}`;
       if (key === 'full') map.fitBounds(layers[key].getBounds(), { padding: [24, 24] });
       else map.fitBounds(layers[key].getBounds(), { padding: [38, 38], maxZoom: 7 });
     };
